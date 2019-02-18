@@ -1,20 +1,42 @@
 from django.shortcuts import render, redirect
-from .models import Restaurant, Item
+from .models import Restaurant, Item ,FavoriteRestaurant
 from .forms import RestaurantForm, ItemForm, SignupForm, SigninForm
 from django.contrib.auth import login, authenticate, logout
+from django.http import HttpResponse ,Http404 ,JsonResponse
 from django.db.models import Q
 
 # This view will be used to favorite a restaurant
 def restaurant_favorite(request, restaurant_id):
-    
-    return
+
+   if request.user.is_anonymous:
+       return redirect('signin')
+   restaurant_obj =Restaurant.objects.get(id=restaurant_id)
+   like_obj , created = FavoriteRestaurant.objects.get_or_create(user=request.user, restaurant=restaurant_obj)
+   if created :
+       action = True
+   else :
+        action = False
+        like_obj.delete()
+   data={ 
+        "action":action }
+   return JsonResponse(data)
 
 
 # This view will be used to display only restaurants a user has favorited
 def favorite_restaurants(request):
-    
-    return
 
+   if request.user.is_anonymous:
+       return redirect('signin')
+   like_restaurants = FavoriteRestaurant.objects.filter(user= request.user)
+   #like_restaurants = FavoriteRestaurant.objects.filter(user= request.user).values_list('restaurant_id' ,flat=True)
+   # like_restaurant_obj = []
+   # for item in like_restaurants :
+   #     obj = Restaurant.objects.get(id=item)
+   #     like_restaurant_obj.append(obj)
+   context ={
+        #" like_restaurant_obj": like_restaurant_obj
+        "like_restaurants" : like_restaurants}
+   return render(request, 'Flist.html', context)
 
 def no_access(request):
     return render(request, 'no_access.html')
@@ -72,8 +94,12 @@ def restaurant_list(request):
             Q(owner__username__icontains=query)
         ).distinct()
         #############
+    like_restaurant_obj = []
+    if not (request.user.is_anonymous):
+         like_restaurant_obj = FavoriteRestaurant.objects.filter(user= request.user).values_list('restaurant_id' ,flat=True)
     context = {
-       "restaurants": restaurants
+       "restaurants": restaurants,
+       "like_restaurants": like_restaurant_obj,
     }
     return render(request, 'list.html', context)
 
